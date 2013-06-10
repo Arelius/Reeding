@@ -1,4 +1,5 @@
 http = require('http')
+https = require('https')
 url = require('url')
 xml2js = require('xml2js')
 
@@ -7,8 +8,10 @@ getAndParseXML = (address, cb) ->
   parser = new xml2js.Parser()
 
   resBody = ""
-
-  req = http.request(
+  proto = http
+  if addr.protocol == "https:"
+    proto = https
+  req = proto.request(
     {
       host: addr.hostname
       port: addr.port
@@ -27,15 +30,14 @@ getAndParseXML = (address, cb) ->
   req.end()
 
 transformFeedItem = (item, feedAddress) ->
-  return {
+  ret = {
     title: item.title[0]
     description: item.description[0]
-    date: item.pubDate[0]
-    guid: item.guid[0]['_']
-    feed: {
-      address: feedAddress
-    }
+    feed: feedAddress
   }
+  date = item.pubDate?[0]
+  guid = item.guid?[0]['_']
+  return ret
 
 pullFeed = (address, cb) ->
   getAndParseXML address,
@@ -47,9 +49,10 @@ pullFeed = (address, cb) ->
           address: address
           title: channel.title[0]
           description: channel.description[0]
-          date: channel.pubDate
           items: items
         }
+        if channel.pubDate?
+          mFeed.date = channel.pubDate
         for item in channel.item
           items.push transformFeedItem(item, mFeed)
         cb(mFeed)
